@@ -74,3 +74,9 @@ R2 нь хувийн bucket байна. r2.dev public URL нээхгүй.
 npm run dev нь зөвхөн локал туршилтын сервер. Түр өгөгдлийн сан, туршилтын админтай;
 тэр админ, туршилтын данс үйлдвэрлэлийн Worker-д орохгүй. Worker-ийн entry point:
 worker/cloudflare.mjs. Scripts доторх dev серверийг production-д ашиглахгүй.
+
+## GitHub автомат build — 2026-11-16
+Cloudflare Worker-ийн Git repository нь kom150870-debug/manhwa-site, production branch main.
+Root path: sakitoru. Build command: npm run build.
+Deploy command: npx wrangler d1 migrations apply DB --remote && npx wrangler deploy.
+GitHub холболт dashboard дээр батлагдсан; эхний build, migration, live URL-ийн амжилтыг тусад нь шалгана.
