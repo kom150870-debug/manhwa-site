@@ -4,7 +4,7 @@
   "compatibility_date": "2026-11-15",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {"directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"]},
-  "d1_databases": [{"binding": "DB", "database_name": "sakitoru", "database_id": "REPLACE_WITH_D1_DATABASE_ID", "migrations_dir": "migrations"}],
+  "d1_databases": [{"binding": "DB", "database_name": "sakitoru", "database_id": "ad50ec43-364a-4862-9f63-337dc5131821", "migrations_dir": "migrations"}],
   "r2_buckets": [{"binding": "MEDIA", "bucket_name": "sakitoru-media"}],
   "vars": {"ADMIN_USER_ID": ""}
 }
