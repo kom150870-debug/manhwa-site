@@ -1,0 +1,17 @@
+{
+  "name": "sakitoru",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node --check worker/cloudflare.mjs && node --check worker/auth.mjs && node --check public/app.js && node --check public/cloudflare-client.js",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --test tests/*.test.mjs",
+    "dev": "node scripts/dev-cloudflare.mjs",
+    "deploy": "npx wrangler deploy"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "wrangler": "^4.162.0"
+  }
+}
