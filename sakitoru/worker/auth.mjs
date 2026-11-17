@@ -1,12 +1,19 @@
-import {pbkdf2} from 'node:crypto';
+import {pbkdf2,scrypt} from 'node:crypto';
 const enc=new TextEncoder();
 const hex=b=>Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join('');
 export const digest=async s=>hex(await crypto.subtle.digest('SHA-256',enc.encode(s)));
 const random=()=>hex(crypto.getRandomValues(new Uint8Array(32)));
 const stamp=()=>Math.floor(Date.now()/1000);
 export const reply=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
-// Standard PBKDF2-HMAC-SHA256 with a per-user random salt.
-export function passwordHash(password,salt){return new Promise((resolve,reject)=>pbkdf2(password,salt,600000,32,'sha256',(err,key)=>err?reject(err):resolve(hex(key))))}
+// Versioned scrypt using the OWASP 16 MiB / p=5 profile.
+const SCRYPT_PREFIX='scrypt$16384$8$5$';
+export function passwordHash(password,salt){return new Promise((resolve,reject)=>scrypt(password,salt,32,{N:16384,r:8,p:5,maxmem:33554432},(err,key)=>err?reject(err):resolve(SCRYPT_PREFIX+hex(key))))}
+export async function verifyPassword(password,salt,stored){
+ if(stored.startsWith(SCRYPT_PREFIX))return equal(await passwordHash(password,salt),stored);
+ if(!/^[a-f0-9]{64}$/.test(stored))return false;
+ const legacy=await new Promise((resolve,reject)=>pbkdf2(password,salt,600000,32,'sha256',(err,key)=>err?reject(err):resolve(hex(key))));
+ return equal(legacy,stored);
+}
 export function equal(a,b){if(typeof a!=='string'||typeof b!=='string')return false;let diff=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)diff|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return diff===0}
 export async function readJSON(req,max=4096){if(Number(req.headers.get('content-length')||0)>max)throw Error('too_large');const reader=req.body?.getReader();let text='',size=0;const decoder=new TextDecoder();if(!reader)throw Error('body');while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>max){await reader.cancel();throw Error('too_large')}text+=decoder.decode(value,{stream:true})}return JSON.parse(text+decoder.decode())}
 export async function identity(req,env){const token=req.headers.get('cookie')?.match(/(?:^|;\s*)__Host-mur_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token||!env.DB)return null;return env.DB.prepare('SELECT u.id,u.username,u.suspended FROM auth_sessions s JOIN auth_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.suspended=0').bind(await digest(token),stamp()).first()}
@@ -36,7 +43,7 @@ export async function authApi(req,env){const path=new URL(req.url).pathname;if(!
   const salt=random(),recovery=random();await env.DB.batch([env.DB.prepare('UPDATE auth_users SET password_hash=?,salt=?,recovery_hash=? WHERE id=?').bind(await passwordHash(password,salt),salt,await digest(recovery),user.id),env.DB.prepare('DELETE FROM auth_sessions WHERE user_id=?').bind(user.id)]);
   return reply({recoveryCode:recovery,userId:user.id},200,{'Set-Cookie':await session(env,user.id)});
  }
- const hash=await passwordHash(password,user?.salt||'unknown-user-constant-salt');
- if(!user||user.suspended||!equal(hash,user.password_hash))return reply({error:'invalid_login'},401);
+ const valid=user?await verifyPassword(password,user.salt,user.password_hash):(await passwordHash(password,'unknown-user-constant-salt'),false);
+ if(!user||user.suspended||!valid)return reply({error:'invalid_login'},401);
  return reply({ok:true,userId:user.id},200,{'Set-Cookie':await session(env,user.id)});
 }
